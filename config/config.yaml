@@ -1,0 +1,16 @@
+env: 'local' # local/docker/prod
+
+http:
+  host: '0.0.0.0'
+  port: '8080'
+  read_timeout: 5s
+  write_timeout: 5s
+  idle_timeout: 60s
+  bytes_limit: 1024
+
+postgresql:
+  username: 'postgres'
+  password: '12345'
+  host: 'localhost' # localhost/postgresql
+  port: '30000'     # 30000/5432
+  database: 'meet_me'
