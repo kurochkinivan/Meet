@@ -2,11 +2,10 @@ package usecase
 
 import (
 	"context"
-	"errors"
+	"crypto/sha256"
 	"fmt"
 
 	"github.com/kurochkinivan/Meet/internal/entity"
-	"github.com/kurochkinivan/Meet/pkg/psql"
 )
 
 type AuthUseCase struct {
@@ -22,21 +21,35 @@ func NewAuthUseCase(userRepository UserRepository) *AuthUseCase {
 type UserRepository interface {
 	CreateIfNotExists(ctx context.Context, user *entity.User) error
 	GetUserByEmail(ctx context.Context, email string) (*entity.User, error)
+	GetUserIfExists(ctx context.Context, email, password string) (*entity.User, error)
 }
 
 func (a *AuthUseCase) Register(ctx context.Context, user *entity.User) (*entity.User, error) {
+	user.Password = a.hashPassword(user.Password)
 	err := a.UserRepository.CreateIfNotExists(ctx, user)
 	if err != nil {
-		if errors.Is(err, psql.NoRowsAffected) {
-			return nil, fmt.Errorf("user already exists")
-		}
-		return nil, fmt.Errorf("failed to create user, err: %w", err)
+		return nil, err
 	}
 
 	user, err = a.UserRepository.GetUserByEmail(ctx, user.Email)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user by email, err: %w", err)
+		return nil, err
 	}
 
 	return user, nil
+}
+
+func (a *AuthUseCase) AuthenticateUser(ctx context.Context, email, password string) (*entity.User, error) {
+	user, err := a.GetUserIfExists(ctx, email, a.hashPassword(password))
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (a *AuthUseCase) hashPassword(password string) string {
+	h := sha256.New()
+	h.Write([]byte(password))
+	return fmt.Sprintf("%x", h.Sum(nil))
 }

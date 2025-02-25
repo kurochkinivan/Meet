@@ -2,9 +2,13 @@ package postgresql
 
 import (
 	"context"
+	"errors"
+	"net/http"
 
 	sq "github.com/Masterminds/squirrel"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/kurochkinivan/Meet/internal/apperr"
 	"github.com/kurochkinivan/Meet/internal/entity"
 	"github.com/kurochkinivan/Meet/pkg/psql"
 )
@@ -41,16 +45,16 @@ func (r *UserRepository) CreateIfNotExists(ctx context.Context, user *entity.Use
 		Suffix("ON CONFLICT (email) DO NOTHING").
 		ToSql()
 	if err != nil {
-		return psql.ErrCreateQuery(op, err)
+		return apperr.WithHTTPStatus(psql.ErrCreateQuery(op, err), http.StatusInternalServerError)
 	}
 
 	commTag, err := r.client.Exec(ctx, sql, args...)
 	if err != nil {
-		return psql.ErrExec(op, err)
+		return apperr.WithHTTPStatus(psql.ErrExec(op, err), http.StatusInternalServerError)
 	}
 
 	if commTag.RowsAffected() == 0 {
-		return psql.NoRowsAffected
+		return apperr.WithHTTPStatus(psql.ErrNoRowsAffected, http.StatusConflict)
 	}
 
 	return nil
@@ -72,7 +76,7 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*ent
 		Where(sq.Eq{"email": email}).
 		ToSql()
 	if err != nil {
-		return nil, psql.ErrCreateQuery(op, err)
+		return nil, apperr.WithHTTPStatus(psql.ErrCreateQuery(op, err), http.StatusInternalServerError)
 	}
 
 	user := &entity.User{}
@@ -85,7 +89,45 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*ent
 		&user.CreatedAt,
 	)
 	if err != nil {
-		return nil, psql.ErrDoQuery(op, err)
+		return nil, apperr.WithHTTPStatus(psql.ErrScan(op, err), http.StatusInternalServerError)
+	}
+
+	return user, nil
+}
+
+func (r *UserRepository) GetUserIfExists(ctx context.Context, email, password string) (*entity.User, error) {
+	op := "GetUserIfExists"
+
+	sql, args, err := r.qb.
+		Select(
+			"id",
+			"name",
+			"email",
+			"ST_X(location::geometry) AS longitude",
+			"ST_Y(location::geometry) AS latitude",
+			"created_at",
+		).
+		From(TableUsers).
+		Where(sq.And{sq.Eq{"email": email}, sq.Eq{"password": password}}).
+		ToSql()
+	if err != nil {
+		return nil, apperr.WithHTTPStatus(psql.ErrCreateQuery(op, err), http.StatusInternalServerError)
+	}
+
+	user := &entity.User{}
+	err = r.client.QueryRow(ctx, sql, args...).Scan(
+		&user.UUID,
+		&user.Name,
+		&user.Email,
+		&user.Location.Longitude,
+		&user.Location.Latitude,
+		&user.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperr.WithHTTPStatus(err, http.StatusUnauthorized)
+		}
+		return nil, psql.ErrScan(op, err)
 	}
 
 	return user, nil

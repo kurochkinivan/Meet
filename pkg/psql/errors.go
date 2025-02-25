@@ -8,7 +8,8 @@ import (
 )
 
 var (
-	NoRowsAffected = errors.New("no rows affected")
+	ErrNoRowsAffected = errors.New("no rows affected")
+	ErrNoRows = errors.New("no rows in the result set")
 )
 
 func ErrExec(op string, err error) error {
