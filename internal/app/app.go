@@ -33,7 +33,7 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	repositories := postgresql.NewRepositories(client)
 	usecases := usecase.NewUseCases(repositories)
-	handler := v1.NewHandler(usecases, cfg.HTTP.BytesLimit)
+	handler := v1.NewHandler(usecases, cfg.HTTP.BytesLimit, cfg.HTTP.MaxLimit)
 
 	server := &http.Server{
 		Addr:         net.JoinHostPort(cfg.HTTP.Host, cfg.HTTP.Port),

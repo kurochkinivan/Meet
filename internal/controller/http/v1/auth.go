@@ -30,6 +30,7 @@ func NewAuthHandler(bytesLimit int64, authUseCase AuthUseCase) Handler {
 	}
 }
 
+// TODO: make auth middleware and jwt
 func (h *AuthHandler) Register(r *httprouter.Router) {
 	r.POST("/v1/auth/register", errorHandler(h.register))
 	r.POST("/v1/auth/login", errorHandler(h.login))

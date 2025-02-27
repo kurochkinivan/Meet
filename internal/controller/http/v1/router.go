@@ -11,11 +11,14 @@ type Handler interface {
 	Register(r *httprouter.Router)
 }
 
-func NewHandler(usecases *usecase.UseCases, bytesLimit int64) http.Handler {
+func NewHandler(usecases *usecase.UseCases, bytesLimit, maxMemory int64) http.Handler {
 	r := httprouter.New()
 
 	authHandler := NewAuthHandler(bytesLimit, usecases.AuthUseCase)
 	authHandler.Register(r)
+
+	userHandler := NewUserHandler(bytesLimit, maxMemory, usecases.PhotoUseCase)
+	userHandler.Register(r)
 
 	return r
 }
