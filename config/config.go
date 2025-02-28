@@ -21,6 +21,10 @@ type Config struct {
 		MaxLimit     int64         `yaml:"max_limit" env:"HTTP_MAX_LIMIT" env-required:"true"`
 	} `yaml:"http"`
 
+	S3 struct {
+		BucketName string `yaml:"bucket_name" env:"S3_BUCKET_NAME" env-required:"true"`
+	} `yaml:"s3"`
+
 	PostgreSQL struct {
 		Host     string `yaml:"host" env:"PSQL_HOST" env-required:"true"`
 		Port     string `yaml:"port" env:"PSQL_PORT" env-required:"true"`

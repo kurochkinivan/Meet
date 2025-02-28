@@ -10,8 +10,10 @@ import (
 	"github.com/kurochkinivan/Meet/config"
 	v1 "github.com/kurochkinivan/Meet/internal/controller/http/v1"
 	"github.com/kurochkinivan/Meet/internal/usecase"
-	"github.com/kurochkinivan/Meet/internal/usecase/repository/postgresql"
+	"github.com/kurochkinivan/Meet/internal/usecase/repository/pg"
+	"github.com/kurochkinivan/Meet/internal/usecase/repository/s3"
 	"github.com/kurochkinivan/Meet/pkg/psql"
+	"github.com/kurochkinivan/Meet/pkg/s3client"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
@@ -26,13 +28,19 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	pgConfig := psql.NewPgConfig(cfgpq.Username, cfgpq.Password, cfgpq.Host, cfgpq.Port, cfgpq.Database)
 
 	logrus.Info("connecting to database client...")
-	client, err := psql.NewClient(context.Background(), 5, pgConfig)
+	clientPSQL, err := psql.NewClient(context.Background(), 5, pgConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	repositories := postgresql.NewRepositories(client)
-	usecases := usecase.NewUseCases(repositories)
+	clientS3, err := s3client.NewClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create s3 client: %w", err)
+	}
+
+	pgRepositories := pg.NewRepositories(clientPSQL)
+	s3Repositories := s3.NewRepositories(clientS3, cfg.S3.BucketName)
+	usecases := usecase.NewUseCases(pgRepositories, s3Repositories)
 	handler := v1.NewHandler(usecases, cfg.HTTP.BytesLimit, cfg.HTTP.MaxLimit)
 
 	server := &http.Server{

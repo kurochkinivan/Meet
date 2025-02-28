@@ -9,9 +9,12 @@ http:
   bytes_limit: 1024
   max_limit: 10485760
 
+s3:
+  bucket_name: 'meet'
+
 postgresql:
   username: 'postgres'
   password: '12345'
   host: 'localhost' # localhost/postgresql
   port: '30000'     # 30000/5432
-  database: 'meet_me'
+  database: 'meet'
