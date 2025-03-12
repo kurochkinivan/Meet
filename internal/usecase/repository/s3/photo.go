@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/google/uuid"
 	"github.com/kurochkinivan/Meet/internal/apperr"
 )
@@ -32,6 +33,7 @@ func (r *PhotoRepository) UploadPhoto(ctx context.Context, userID string, file i
 		Bucket: aws.String(r.bucketName),
 		Key:    aws.String(objectKey),
 		Body:   file,
+		ACL:    types.ObjectCannedACLPublicRead,
 	})
 	if err != nil {
 		return "", apperr.WithHTTPStatus(fmt.Errorf("can't upload file with objectkey %s, err: %w", objectKey, err), http.StatusInternalServerError)
@@ -45,5 +47,6 @@ func (r *PhotoRepository) UploadPhoto(ctx context.Context, userID string, file i
 		return "", apperr.WithHTTPStatus(fmt.Errorf("failed attempt to wait for object %s to exist", objectKey), http.StatusInternalServerError)
 	}
 
-	return objectKey, nil
+	url := fmt.Sprintf("https://storage.yandexcloud.net/%s/%s", r.bucketName, objectKey)
+	return url, nil
 }
