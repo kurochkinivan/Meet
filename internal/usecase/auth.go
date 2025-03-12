@@ -9,29 +9,29 @@ import (
 )
 
 type AuthUseCase struct {
-	UserRepository
+	UserCreator
 }
 
-func NewAuthUseCase(userRepository UserRepository) *AuthUseCase {
+func NewAuthUseCase(userCreatorRepository UserCreator) *AuthUseCase {
 	return &AuthUseCase{
-		UserRepository: userRepository,
+		UserCreator: userCreatorRepository,
 	}
 }
 
-type UserRepository interface {
+type UserCreator interface {
 	CreateIfNotExists(ctx context.Context, user *entity.User) error
-	GetUserByEmail(ctx context.Context, email string) (*entity.User, error)
+	GetByEmail(ctx context.Context, email string) (*entity.User, error)
 	GetUserIfExists(ctx context.Context, email, password string) (*entity.User, error)
 }
 
 func (u *AuthUseCase) Register(ctx context.Context, user *entity.User) (*entity.User, error) {
 	user.Password = u.hashPassword(user.Password)
-	err := u.UserRepository.CreateIfNotExists(ctx, user)
+	err := u.UserCreator.CreateIfNotExists(ctx, user)
 	if err != nil {
 		return nil, err
 	}
 
-	user, err = u.UserRepository.GetUserByEmail(ctx, user.Email)
+	user, err = u.UserCreator.GetByEmail(ctx, user.Email)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func (u *AuthUseCase) Register(ctx context.Context, user *entity.User) (*entity.
 }
 
 func (u *AuthUseCase) AuthenticateUser(ctx context.Context, email, password string) (*entity.User, error) {
-	user, err := u.UserRepository.GetUserIfExists(ctx, email, u.hashPassword(password))
+	user, err := u.UserCreator.GetUserIfExists(ctx, email, u.hashPassword(password))
 	if err != nil {
 		return nil, err
 	}

@@ -3,6 +3,7 @@ package pg
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	sq "github.com/Masterminds/squirrel"
@@ -60,8 +61,8 @@ func (r *UserRepository) CreateIfNotExists(ctx context.Context, user *entity.Use
 	return nil
 }
 
-func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*entity.User, error) {
-	op := "GetUserByEmail"
+func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*entity.User, error) {
+	op := "GetByEmail"
 
 	sql, args, err := r.qb.
 		Select(
@@ -128,6 +129,56 @@ func (r *UserRepository) GetUserIfExists(ctx context.Context, email, password st
 			return nil, apperr.WithHTTPStatus(err, http.StatusUnauthorized)
 		}
 		return nil, psql.ErrScan(op, err)
+	}
+
+	return user, nil
+}
+
+func (r *UserRepository) GetByID(ctx context.Context, userID string) (*entity.User, error) {
+	op := "GetByID"
+
+	sql, args, err := r.qb.
+		Select(
+			usersField("id"),
+			usersField("name"),
+			usersField("email"),
+			"ST_X(users.location::geometry) AS longitude",
+			"ST_Y(users.location::geometry) AS latitude",
+			usersField("created_at"),
+			photosField("id"),
+			photosField("url"),
+		).
+		From(TableUsers).
+		LeftJoin(fmt.Sprintf("%s ON %s.id = %s.user_id", TablePhotos, TableUsers, TablePhotos)).
+		Where(sq.Eq{usersField("id"): userID}).
+		ToSql()
+	if err != nil {
+		return nil, apperr.WithHTTPStatus(psql.ErrCreateQuery(op, err), http.StatusInternalServerError)
+	}
+
+	user := &entity.User{}
+	rows, err := r.client.Query(ctx, sql, args...)
+	if err != nil {
+		return nil, apperr.WithHTTPStatus(psql.ErrDoQuery(op, err), http.StatusInternalServerError)
+	}
+
+	for rows.Next() {
+		photo := &entity.Photo{}
+		err = rows.Scan(
+			&user.UUID,
+			&user.Name,
+			&user.Email,
+			&user.Location.Longitude,
+			&user.Location.Latitude,
+			&user.CreatedAt,
+			&photo.ID,
+			&photo.URL,
+		)
+		if err != nil {
+			return nil, apperr.WithHTTPStatus(psql.ErrScan(op, err), http.StatusInternalServerError)
+		}
+
+		user.Photos = append(user.Photos, photo)
 	}
 
 	return user, nil

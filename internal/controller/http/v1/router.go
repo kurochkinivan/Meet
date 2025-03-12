@@ -17,7 +17,7 @@ func NewHandler(usecases *usecase.UseCases, bytesLimit, maxMemory int64) http.Ha
 	authHandler := NewAuthHandler(bytesLimit, usecases.AuthUseCase)
 	authHandler.Register(r)
 
-	userHandler := NewUserHandler(bytesLimit, maxMemory, usecases.PhotoUseCase)
+	userHandler := NewUserHandler(bytesLimit, maxMemory, usecases.UserUseCase, usecases.PhotoUseCase)
 	userHandler.Register(r)
 
 	return r

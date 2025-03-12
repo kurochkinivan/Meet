@@ -8,11 +8,13 @@ import (
 type UseCases struct {
 	*AuthUseCase
 	*PhotoUseCase
+	*UserUseCase
 }
 
 func NewUseCases(PGrepositories *pg.Repositories, S3Repositoires *s3.Repositories) *UseCases {
 	return &UseCases{
 		AuthUseCase:  NewAuthUseCase(PGrepositories.UserRepository),
 		PhotoUseCase: NewPhotoUseCase(PGrepositories.PhotoRepository, S3Repositoires.PhotoRepository),
+		UserUseCase: NewUserUseCase(PGrepositories.UserRepository),
 	}
 }

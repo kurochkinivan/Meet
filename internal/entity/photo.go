@@ -9,6 +9,6 @@ import (
 type Photo struct {
 	ID        int
 	UserID    uuid.UUID
-	Url       string
+	URL       string
 	CreatedAt time.Time
 }

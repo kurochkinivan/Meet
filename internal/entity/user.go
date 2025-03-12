@@ -7,12 +7,13 @@ import (
 )
 
 type User struct {
-	UUID        uuid.UUID
+	UUID      uuid.UUID
 	Name      string
 	Email     string
 	Password  string
 	Location  Coordiantes
 	CreatedAt time.Time
+	Photos    []*Photo
 }
 
 type Coordiantes struct {
