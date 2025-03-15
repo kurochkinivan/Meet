@@ -2,9 +2,11 @@ package pg
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	sq "github.com/Masterminds/squirrel"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/kurochkinivan/Meet/internal/apperr"
 	"github.com/kurochkinivan/Meet/internal/entity"
@@ -121,4 +123,40 @@ func (r *PhotoRepository) DeletePhoto(ctx context.Context, userID string, photoI
 	}
 
 	return nil
+}
+
+func (r *PhotoRepository) GetPhoto(ctx context.Context, photoID string) (*entity.Photo, error) {
+	op := "GetPhoto"
+
+	sql, args, err := r.qb.
+		Select(
+			"id",
+			"user_id",
+			"object_key",
+			"url",
+			"created_at",
+		).
+		From(TablePhotos).
+		Where(sq.Eq{"id": photoID}).
+		ToSql()
+	if err != nil {
+		return nil, apperr.WithHTTPStatus(psql.ErrCreateQuery(op, err), http.StatusInternalServerError)
+	}
+
+	photo := &entity.Photo{}
+	err = r.client.QueryRow(ctx, sql, args...).Scan(
+		&photo.ID,
+		&photo.UserID,
+		&photo.ObjectKey,
+		&photo.URL,
+		&photo.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperr.WithHTTPStatus(psql.ErrNoRows, http.StatusBadRequest)
+		}
+		return nil, apperr.WithHTTPStatus(psql.ErrScan(op, err), http.StatusInternalServerError)
+	}
+
+	return photo, nil
 }

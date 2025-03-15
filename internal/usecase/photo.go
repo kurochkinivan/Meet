@@ -27,11 +27,13 @@ func NewPhotoUseCase(storage PhotoStorageRepository, cloud PhotoCloudRepository)
 type PhotoStorageRepository interface {
 	CreatePhoto(ctx context.Context, userID string, url string, objectKey string) error
 	GetPhotos(ctx context.Context, userID string) ([]*entity.Photo, error)
+	GetPhoto(ctx context.Context, photoID string) (*entity.Photo, error)
 	DeletePhoto(ctx context.Context, userID string, photoID string) error
 }
 
 type PhotoCloudRepository interface {
 	UploadPhoto(ctx context.Context, userID string, file io.Reader) (url string, objectKey string, err error)
+	DeletePhoto(ctx context.Context, objectKey string) error
 }
 
 func (u *PhotoUseCase) UploadPhotos(ctx context.Context, userID string, files []*multipart.FileHeader) error {
@@ -53,7 +55,11 @@ func (u *PhotoUseCase) UploadPhotos(ctx context.Context, userID string, files []
 
 			err = u.PhotoStorageRepository.CreatePhoto(ctx, userID, url, objectKey)
 			if err != nil {
-				return fmt.Errorf("failed to create photo, err: %w", err)
+				errDelete := u.PhotoCloudRepository.DeletePhoto(ctx, objectKey)
+				if errDelete != nil {
+					return fmt.Errorf("failed to create photo: %w; rollback failed: %v", err, errDelete)
+				}
+				return fmt.Errorf("failed to create photo, rollback cloud upload, err: %w", err)
 			}
 
 			return nil
@@ -73,10 +79,24 @@ func (u *PhotoUseCase) GetPhotos(ctx context.Context, userID string) ([]*entity.
 }
 
 func (u *PhotoUseCase) DeletePhoto(ctx context.Context, userID string, photoID string) error {
-	err := u.PhotoStorageRepository.DeletePhoto(ctx, userID, photoID)
+	photo, err := u.PhotoStorageRepository.GetPhoto(ctx, photoID)
+	if err != nil {
+		return fmt.Errorf("failed to get photo, err: %w", err)
+	}
+
+	err = u.PhotoStorageRepository.DeletePhoto(ctx, userID, photoID)
 	if err != nil {
 		return fmt.Errorf("failed to delete photo, err: %w", err)
 	}
 
-	return nil 
+	err = u.PhotoCloudRepository.DeletePhoto(ctx, photo.ObjectKey)
+	if err != nil {
+		errCreate := u.PhotoStorageRepository.CreatePhoto(ctx, photo.UserID.String(), photo.URL, photo.ObjectKey)
+		if errCreate != nil {
+			return fmt.Errorf("failed to delete photo from cloud: %w, rollback failed: %w", err, errCreate)
+		}
+		return fmt.Errorf("failed to delete photo from cloud, rollback db delete, err: %w", err)
+	}
+
+	return nil
 }
