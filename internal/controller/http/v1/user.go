@@ -14,7 +14,9 @@ import (
 )
 
 type PhotoUseCase interface {
-	UploadUserPhotos(ctx context.Context, userID string, files []*multipart.FileHeader) error
+	UploadPhotos(ctx context.Context, userID string, files []*multipart.FileHeader) error
+	DeletePhoto(ctx context.Context, userID string, photoID string) error
+	GetPhotos(ctx context.Context, userID string) ([]*entity.Photo, error)
 }
 
 type UserUseCase interface {
@@ -39,7 +41,9 @@ func NewUserHandler(bytesLimit int64, maxMemory int64, userUseCase UserUseCase, 
 
 func (h *UserHandler) Register(r *httprouter.Router) {
 	r.GET("/v1/users/:id", errorHandler(h.getUser))
+	r.GET("/v1/users/:id/photos", errorHandler(h.getPhotos))
 	r.POST("/v1/users/:id/photos", errorHandler(h.uploadPhotos))
+	r.DELETE("/v1/users/:id/photo/:photo_id", errorHandler(h.deletePhoto))
 }
 
 func (h *UserHandler) uploadPhotos(w http.ResponseWriter, r *http.Request, p httprouter.Params) error {
@@ -51,7 +55,7 @@ func (h *UserHandler) uploadPhotos(w http.ResponseWriter, r *http.Request, p htt
 	userID := p.ByName("id")
 	files := r.MultipartForm.File["photo"]
 
-	err = h.PhotoUseCase.UploadUserPhotos(r.Context(), userID, files)
+	err = h.PhotoUseCase.UploadPhotos(r.Context(), userID, files)
 	if err != nil {
 		return err
 	}
@@ -106,3 +110,50 @@ func (h *UserHandler) getUser(w http.ResponseWriter, r *http.Request, p httprout
 
 	return nil
 }
+
+type (
+	getPhotosRepsponse struct {
+		Photos []photoResponse `json:"photos"`
+		Total  int             `json:"total"`
+	}
+)
+
+func (h *UserHandler) getPhotos(w http.ResponseWriter, r *http.Request, p httprouter.Params) error {
+	userID := p.ByName("id")
+	
+	photos, err := h.PhotoUseCase.GetPhotos(r.Context(), userID)
+	if err != nil {
+		return err
+	}
+	
+	resp := &getPhotosRepsponse{
+		Total: len(photos),
+	}
+	for _, photo := range photos {
+		resp.Photos = append(resp.Photos, photoResponse{
+			ID:  photo.ID,
+			URL: photo.URL,
+		})
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(resp)
+	if err != nil {
+		return apperr.WithHTTPStatus(err, http.StatusInternalServerError)
+	}
+	
+	return nil
+}
+
+func (h *UserHandler) deletePhoto(w http.ResponseWriter, r *http.Request, p httprouter.Params) error {
+	userID := p.ByName("id")
+	photoID := p.ByName("photo_id")
+
+	err := h.PhotoUseCase.DeletePhoto(r.Context(), userID, photoID)
+	if err != nil {
+		return err
+	}
+	
+	return nil 
+}
+

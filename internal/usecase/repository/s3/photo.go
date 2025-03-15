@@ -26,17 +26,17 @@ func NewPhotoRepository(client *s3.Client, bucketName string) *PhotoRepository {
 	}
 }
 
-func (r *PhotoRepository) UploadPhoto(ctx context.Context, userID string, file io.Reader) (string, error) {
-	objectKey := fmt.Sprintf("users/%s/photos/%s.jpg", userID, uuid.New().String())
+func (r *PhotoRepository) UploadPhoto(ctx context.Context, userID string, file io.Reader) (url, objectKey string, err error) {
+	objectKey = fmt.Sprintf("users/%s/photos/%s.jpg", userID, uuid.New().String())
 
-	_, err := r.client.PutObject(ctx, &s3.PutObjectInput{
+	_, err = r.client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(r.bucketName),
 		Key:    aws.String(objectKey),
 		Body:   file,
 		ACL:    types.ObjectCannedACLPublicRead,
 	})
 	if err != nil {
-		return "", apperr.WithHTTPStatus(fmt.Errorf("can't upload file with objectkey %s, err: %w", objectKey, err), http.StatusInternalServerError)
+		return "", "", apperr.WithHTTPStatus(fmt.Errorf("can't upload file with objectkey %s, err: %w", objectKey, err), http.StatusInternalServerError)
 	}
 
 	err = s3.NewObjectExistsWaiter(r.client).Wait(ctx, &s3.HeadObjectInput{
@@ -44,9 +44,9 @@ func (r *PhotoRepository) UploadPhoto(ctx context.Context, userID string, file i
 		Key:    aws.String(objectKey),
 	}, time.Minute)
 	if err != nil {
-		return "", apperr.WithHTTPStatus(fmt.Errorf("failed attempt to wait for object %s to exist", objectKey), http.StatusInternalServerError)
+		return "", "", apperr.WithHTTPStatus(fmt.Errorf("failed attempt to wait for object %s to exist", objectKey), http.StatusInternalServerError)
 	}
 
-	url := fmt.Sprintf("https://storage.yandexcloud.net/%s/%s", r.bucketName, objectKey)
-	return url, nil
+	url = fmt.Sprintf("https://storage.yandexcloud.net/%s/%s", r.bucketName, objectKey)
+	return url, objectKey, nil
 }
