@@ -39,6 +39,11 @@ func (r *PhotoRepository) UploadPhoto(ctx context.Context, userID string, file i
 		ACL:    types.ObjectCannedACLPublicRead,
 	})
 	if err != nil {
+		var apiErr smithy.APIError
+		if errors.As(err, &apiErr) && apiErr.ErrorCode() == "EntityTooLarge" {
+			logrus.WithField("objectKey", objectKey).Error("file is too large")
+			err = apiErr
+		}
 		return "", "", apperr.WithHTTPStatus(fmt.Errorf("can't upload file with objectkey %s, err: %w", objectKey, err), http.StatusInternalServerError)
 	}
 
@@ -66,17 +71,17 @@ func (r *PhotoRepository) DeletePhoto(ctx context.Context, objectKey string) err
 
 		if errors.As(err, &noKey) {
 			logrus.WithField("objectKey", objectKey).Error(fmt.Sprintf("object does not exist in %s", r.bucketName))
-			return apperr.WithHTTPStatus(noKey, http.StatusBadRequest)
+			err = noKey
 		}
 
 		if errors.As(err, &apiErr) {
 			if apiErr.ErrorCode() == "AccessDenied" {
 				logrus.WithField("objectKey", objectKey).Error(fmt.Sprintf("access denied: cannot delete object from %s", r.bucketName))
 			}
-			return apperr.WithHTTPStatus(apiErr, http.StatusInternalServerError)
+			err = apiErr
 		}
 
-		return err
+		return apperr.WithHTTPStatus(err, http.StatusInternalServerError)
 	}
 
 	return nil
