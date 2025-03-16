@@ -4,16 +4,35 @@ services:
     container_name: postgres
     restart: always
     ports:
-      - "30000:5432"
+      - '30000:5432'
     environment:
-      - POSTGRES_USER=postgres 
+      - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=12345
       - POSTGRES_DB=meet
     volumes:
-      - ./pgdata:/var/lib/postgresql/data
+      - ./pg_data:/var/lib/postgresql/data
       - ./migrations/001_init_tables.sql:/docker-entrypoint-initdb.d/001.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d meet"]
-      interval: 30s
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d meet" ]
+      interval: 10s
       timeout: 10s
+      retries: 5
+
+  redis:
+    image: redis:7.4.2-alpine
+    container_name: redis
+    restart: always
+    command: redis-server --requirepass 12345 --save 60 1 --appendonly yes
+    ports:
+      - '6379:6379'
+    volumes:
+      - ./redis_data:/data
+    environment:
+      - REDIS_PASSWORD=12345
+      - REDIS_PORT=6379
+      - REDIS_DATABASES=1
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-a", "12345", "ping" ]
+      interval: 10s
+      timeout: 5s
       retries: 5

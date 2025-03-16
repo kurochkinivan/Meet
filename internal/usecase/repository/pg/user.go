@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/kurochkinivan/Meet/internal/apperr"
 	"github.com/kurochkinivan/Meet/internal/entity"
-	"github.com/kurochkinivan/Meet/pkg/psql"
+	"github.com/kurochkinivan/Meet/pkg/pgClient"
 )
 
 type UserRepository struct {
@@ -46,16 +46,16 @@ func (r *UserRepository) CreateIfNotExists(ctx context.Context, user *entity.Use
 		Suffix("ON CONFLICT (email) DO NOTHING").
 		ToSql()
 	if err != nil {
-		return apperr.WithHTTPStatus(psql.ErrCreateQuery(op, err), http.StatusInternalServerError)
+		return apperr.WithHTTPStatus(pgclient.ErrCreateQuery(op, err), http.StatusInternalServerError)
 	}
 
 	commTag, err := r.client.Exec(ctx, sql, args...)
 	if err != nil {
-		return apperr.WithHTTPStatus(psql.ErrExec(op, err), http.StatusInternalServerError)
+		return apperr.WithHTTPStatus(pgclient.ErrExec(op, err), http.StatusInternalServerError)
 	}
 
 	if commTag.RowsAffected() == 0 {
-		return apperr.WithHTTPStatus(psql.ErrNoRowsAffected, http.StatusConflict)
+		return apperr.WithHTTPStatus(pgclient.ErrNoRowsAffected, http.StatusConflict)
 	}
 
 	return nil
@@ -77,7 +77,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*entity.
 		Where(sq.Eq{"email": email}).
 		ToSql()
 	if err != nil {
-		return nil, apperr.WithHTTPStatus(psql.ErrCreateQuery(op, err), http.StatusInternalServerError)
+		return nil, apperr.WithHTTPStatus(pgclient.ErrCreateQuery(op, err), http.StatusInternalServerError)
 	}
 
 	user := &entity.User{}
@@ -90,7 +90,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*entity.
 		&user.CreatedAt,
 	)
 	if err != nil {
-		return nil, apperr.WithHTTPStatus(psql.ErrScan(op, err), http.StatusInternalServerError)
+		return nil, apperr.WithHTTPStatus(pgclient.ErrScan(op, err), http.StatusInternalServerError)
 	}
 
 	return user, nil
@@ -112,7 +112,7 @@ func (r *UserRepository) GetUserIfExists(ctx context.Context, email, password st
 		Where(sq.And{sq.Eq{"email": email}, sq.Eq{"password": password}}).
 		ToSql()
 	if err != nil {
-		return nil, apperr.WithHTTPStatus(psql.ErrCreateQuery(op, err), http.StatusInternalServerError)
+		return nil, apperr.WithHTTPStatus(pgclient.ErrCreateQuery(op, err), http.StatusInternalServerError)
 	}
 
 	user := &entity.User{}
@@ -128,7 +128,7 @@ func (r *UserRepository) GetUserIfExists(ctx context.Context, email, password st
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, apperr.WithHTTPStatus(err, http.StatusUnauthorized)
 		}
-		return nil, psql.ErrScan(op, err)
+		return nil, pgclient.ErrScan(op, err)
 	}
 
 	return user, nil
@@ -153,13 +153,13 @@ func (r *UserRepository) GetByID(ctx context.Context, userID string) (*entity.Us
 		Where(sq.Eq{usersField("id"): userID}).
 		ToSql()
 	if err != nil {
-		return nil, apperr.WithHTTPStatus(psql.ErrCreateQuery(op, err), http.StatusInternalServerError)
+		return nil, apperr.WithHTTPStatus(pgclient.ErrCreateQuery(op, err), http.StatusInternalServerError)
 	}
 
 	user := &entity.User{}
 	rows, err := r.client.Query(ctx, sql, args...)
 	if err != nil {
-		return nil, apperr.WithHTTPStatus(psql.ErrDoQuery(op, err), http.StatusInternalServerError)
+		return nil, apperr.WithHTTPStatus(pgclient.ErrDoQuery(op, err), http.StatusInternalServerError)
 	}
 
 	for rows.Next() {
@@ -175,7 +175,7 @@ func (r *UserRepository) GetByID(ctx context.Context, userID string) (*entity.Us
 			&photo.URL,
 		)
 		if err != nil {
-			return nil, apperr.WithHTTPStatus(psql.ErrScan(op, err), http.StatusInternalServerError)
+			return nil, apperr.WithHTTPStatus(pgclient.ErrScan(op, err), http.StatusInternalServerError)
 		}
 
 		user.Photos = append(user.Photos, photo)

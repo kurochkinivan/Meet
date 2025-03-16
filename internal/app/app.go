@@ -12,8 +12,8 @@ import (
 	"github.com/kurochkinivan/Meet/internal/usecase"
 	"github.com/kurochkinivan/Meet/internal/usecase/repository/pg"
 	"github.com/kurochkinivan/Meet/internal/usecase/repository/s3"
-	"github.com/kurochkinivan/Meet/pkg/psql"
-	"github.com/kurochkinivan/Meet/pkg/s3client"
+	pgclient "github.com/kurochkinivan/Meet/pkg/pgClient"
+	s3client "github.com/kurochkinivan/Meet/pkg/s3Client"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
@@ -25,10 +25,10 @@ type App struct {
 
 func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	cfgpq := cfg.PostgreSQL
-	pgConfig := psql.NewPgConfig(cfgpq.Username, cfgpq.Password, cfgpq.Host, cfgpq.Port, cfgpq.Database)
+	pgConfig := pgclient.NewPgConfig(cfgpq.Username, cfgpq.Password, cfgpq.Host, cfgpq.Port, cfgpq.Database)
 
 	logrus.Info("connecting to database client...")
-	clientPSQL, err := psql.NewClient(context.Background(), 5, pgConfig)
+	clientPSQL, err := pgclient.NewClient(context.Background(), 5, pgConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}

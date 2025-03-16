@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/kurochkinivan/Meet/internal/apperr"
 	"github.com/kurochkinivan/Meet/internal/entity"
-	"github.com/kurochkinivan/Meet/pkg/psql"
+	"github.com/kurochkinivan/Meet/pkg/pgClient"
 )
 
 type PhotoRepository struct {
@@ -42,16 +42,16 @@ func (r *PhotoRepository) CreatePhoto(ctx context.Context, userID string, url st
 		).
 		ToSql()
 	if err != nil {
-		return apperr.WithHTTPStatus(psql.ErrCreateQuery(op, err), http.StatusInternalServerError)
+		return apperr.WithHTTPStatus(pgclient.ErrCreateQuery(op, err), http.StatusInternalServerError)
 	}
 
 	commTag, err := r.client.Exec(ctx, sql, args...)
 	if err != nil {
-		return apperr.WithHTTPStatus(psql.ErrExec(op, err), http.StatusInternalServerError)
+		return apperr.WithHTTPStatus(pgclient.ErrExec(op, err), http.StatusInternalServerError)
 	}
 
 	if commTag.RowsAffected() == 0 {
-		return apperr.WithHTTPStatus(psql.ErrNoRowsAffected, http.StatusInternalServerError)
+		return apperr.WithHTTPStatus(pgclient.ErrNoRowsAffected, http.StatusInternalServerError)
 	}
 
 	return nil
@@ -72,12 +72,12 @@ func (r *PhotoRepository) GetPhotos(ctx context.Context, userID string) ([]*enti
 		Where(sq.Eq{"user_id": userID}).
 		ToSql()
 	if err != nil {
-		return nil, apperr.WithHTTPStatus(psql.ErrCreateQuery(op, err), http.StatusInternalServerError)
+		return nil, apperr.WithHTTPStatus(pgclient.ErrCreateQuery(op, err), http.StatusInternalServerError)
 	}
 
 	rows, err := r.client.Query(ctx, sql, args...)
 	if err != nil {
-		return nil, apperr.WithHTTPStatus(psql.ErrDoQuery(op, err), http.StatusInternalServerError)
+		return nil, apperr.WithHTTPStatus(pgclient.ErrDoQuery(op, err), http.StatusInternalServerError)
 	}
 
 	photos := []*entity.Photo{}
@@ -91,7 +91,7 @@ func (r *PhotoRepository) GetPhotos(ctx context.Context, userID string) ([]*enti
 			&photo.CreatedAt,
 		)
 		if err != nil {
-			return nil, apperr.WithHTTPStatus(psql.ErrScan(op, err), http.StatusInternalServerError)
+			return nil, apperr.WithHTTPStatus(pgclient.ErrScan(op, err), http.StatusInternalServerError)
 		}
 		photos = append(photos, photo)
 	}
@@ -110,16 +110,16 @@ func (r *PhotoRepository) DeletePhoto(ctx context.Context, userID string, photoI
 		}).
 		ToSql()
 	if err != nil {
-		return apperr.WithHTTPStatus(psql.ErrCreateQuery(op, err), http.StatusInternalServerError)
+		return apperr.WithHTTPStatus(pgclient.ErrCreateQuery(op, err), http.StatusInternalServerError)
 	}
 
 	commTag, err := r.client.Exec(ctx, sql, args...)
 	if err != nil {
-		return apperr.WithHTTPStatus(psql.ErrExec(op, err), http.StatusInternalServerError)
+		return apperr.WithHTTPStatus(pgclient.ErrExec(op, err), http.StatusInternalServerError)
 	}
 
 	if commTag.RowsAffected() == 0 {
-		return apperr.WithHTTPStatus(psql.ErrNoRowsAffected, http.StatusInternalServerError)
+		return apperr.WithHTTPStatus(pgclient.ErrNoRowsAffected, http.StatusInternalServerError)
 	}
 
 	return nil
@@ -140,7 +140,7 @@ func (r *PhotoRepository) GetPhoto(ctx context.Context, photoID string) (*entity
 		Where(sq.Eq{"id": photoID}).
 		ToSql()
 	if err != nil {
-		return nil, apperr.WithHTTPStatus(psql.ErrCreateQuery(op, err), http.StatusInternalServerError)
+		return nil, apperr.WithHTTPStatus(pgclient.ErrCreateQuery(op, err), http.StatusInternalServerError)
 	}
 
 	photo := &entity.Photo{}
@@ -153,9 +153,9 @@ func (r *PhotoRepository) GetPhoto(ctx context.Context, photoID string) (*entity
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, apperr.WithHTTPStatus(psql.ErrNoRows, http.StatusBadRequest)
+			return nil, apperr.WithHTTPStatus(pgclient.ErrNoRows, http.StatusBadRequest)
 		}
-		return nil, apperr.WithHTTPStatus(psql.ErrScan(op, err), http.StatusInternalServerError)
+		return nil, apperr.WithHTTPStatus(pgclient.ErrScan(op, err), http.StatusInternalServerError)
 	}
 
 	return photo, nil

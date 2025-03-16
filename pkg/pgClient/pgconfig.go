@@ -1,4 +1,4 @@
-package psql
+package pgclient
 
 type PgConfig struct {
 	Username string
