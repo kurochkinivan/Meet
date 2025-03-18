@@ -74,7 +74,7 @@ type (
 	}
 
 	photoResponse struct {
-		ID  int    `json:"id"`
+		ID  int64  `json:"id"`
 		URL string `json:"url"`
 	}
 )
@@ -120,12 +120,12 @@ type (
 
 func (h *UserHandler) getPhotos(w http.ResponseWriter, r *http.Request, p httprouter.Params) error {
 	userID := p.ByName("id")
-	
+
 	photos, err := h.PhotoUseCase.GetPhotos(r.Context(), userID)
 	if err != nil {
 		return err
 	}
-	
+
 	resp := &getPhotosRepsponse{
 		Total: len(photos),
 	}
@@ -135,13 +135,13 @@ func (h *UserHandler) getPhotos(w http.ResponseWriter, r *http.Request, p httpro
 			URL: photo.URL,
 		})
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(resp)
 	if err != nil {
 		return apperr.WithHTTPStatus(err, http.StatusInternalServerError)
 	}
-	
+
 	return nil
 }
 
@@ -153,7 +153,6 @@ func (h *UserHandler) deletePhoto(w http.ResponseWriter, r *http.Request, p http
 	if err != nil {
 		return err
 	}
-	
-	return nil 
-}
 
+	return nil
+}

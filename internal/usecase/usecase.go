@@ -16,6 +16,6 @@ func NewUseCases(PGrepositories *pg.Repositories, S3Repositoires *s3.Repositorie
 	return &UseCases{
 		AuthUseCase:  NewAuthUseCase(PGrepositories.UserRepository),
 		PhotoUseCase: NewPhotoUseCase(PGrepositories.PhotoRepository, S3Repositoires.PhotoRepository),
-		UserUseCase:  NewUserUseCase(PGrepositories.UserRepository),
+		UserUseCase:  NewUserUseCase(PGrepositories.UserRepository, redisRepositories.UserRepository),
 	}
 }

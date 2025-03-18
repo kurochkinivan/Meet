@@ -2,6 +2,7 @@ package pg
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
@@ -11,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/kurochkinivan/Meet/internal/apperr"
 	"github.com/kurochkinivan/Meet/internal/entity"
-	"github.com/kurochkinivan/Meet/pkg/pgClient"
+	pgclient "github.com/kurochkinivan/Meet/pkg/pgClient"
 )
 
 type UserRepository struct {
@@ -137,7 +138,7 @@ func (r *UserRepository) GetUserIfExists(ctx context.Context, email, password st
 func (r *UserRepository) GetByID(ctx context.Context, userID string) (*entity.User, error) {
 	op := "GetByID"
 
-	sql, args, err := r.qb.
+	query, args, err := r.qb.
 		Select(
 			usersField("id"),
 			usersField("name"),
@@ -157,13 +158,15 @@ func (r *UserRepository) GetByID(ctx context.Context, userID string) (*entity.Us
 	}
 
 	user := &entity.User{}
-	rows, err := r.client.Query(ctx, sql, args...)
+	rows, err := r.client.Query(ctx, query, args...)
 	if err != nil {
 		return nil, apperr.WithHTTPStatus(pgclient.ErrDoQuery(op, err), http.StatusInternalServerError)
 	}
 
 	for rows.Next() {
-		photo := &entity.Photo{}
+		var photoID sql.NullInt64
+		var photoURL sql.NullString
+
 		err = rows.Scan(
 			&user.UUID,
 			&user.Name,
@@ -171,14 +174,20 @@ func (r *UserRepository) GetByID(ctx context.Context, userID string) (*entity.Us
 			&user.Location.Longitude,
 			&user.Location.Latitude,
 			&user.CreatedAt,
-			&photo.ID,
-			&photo.URL,
+			&photoID,
+			&photoURL,
 		)
 		if err != nil {
 			return nil, apperr.WithHTTPStatus(pgclient.ErrScan(op, err), http.StatusInternalServerError)
 		}
 
-		user.Photos = append(user.Photos, photo)
+		if photoID.Valid {
+			user.Photos = append(user.Photos, &entity.Photo{
+				ID:  photoID.Int64,
+				URL: photoURL.String,
+			})
+		}
+
 	}
 
 	return user, nil

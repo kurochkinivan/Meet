@@ -21,6 +21,8 @@ redis:
   host: 'localhost' # localhost/redis
   port: '6379' 
   database: 0
+  lfu_capacity: 10000
+  expiration: 60s
 
 s3:
   bucket_name: 'meet'

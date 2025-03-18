@@ -39,7 +39,7 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 
 	logrus.Info("connecting to redis...")
-	clientRedis, err := redisclient.NewClient(cfg.Redis.Host, cfg.Redis.Port, cfg.Redis.Password, cfg.Redis.Database)
+	clientRedis, err := redisclient.NewClient(cfg.Redis.Host, cfg.Redis.Port, cfg.Redis.Password, *cfg.Redis.Database)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to redis: %w", err)
 	}
@@ -51,7 +51,7 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 
 	pgRepositories := pg.NewRepositories(clientPSQL)
-	redisRepositories := redis.NewRepositories(clientRedis)
+	redisRepositories := redis.NewRepositories(clientRedis, cfg.Redis.LFUCapacity, cfg.Redis.Expiration)
 	s3Repositories := s3.NewRepositories(clientS3, cfg.S3.BucketName)
 
 	usecases := usecase.NewUseCases(pgRepositories, s3Repositories, redisRepositories)
