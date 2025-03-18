@@ -11,8 +11,10 @@ import (
 	v1 "github.com/kurochkinivan/Meet/internal/controller/http/v1"
 	"github.com/kurochkinivan/Meet/internal/usecase"
 	"github.com/kurochkinivan/Meet/internal/usecase/repository/pg"
+	"github.com/kurochkinivan/Meet/internal/usecase/repository/redis"
 	"github.com/kurochkinivan/Meet/internal/usecase/repository/s3"
 	pgclient "github.com/kurochkinivan/Meet/pkg/pgClient"
+	redisclient "github.com/kurochkinivan/Meet/pkg/redisClient"
 	s3client "github.com/kurochkinivan/Meet/pkg/s3Client"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
@@ -24,23 +26,36 @@ type App struct {
 }
 
 func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
-	cfgpq := cfg.PostgreSQL
-	pgConfig := pgclient.NewPgConfig(cfgpq.Username, cfgpq.Password, cfgpq.Host, cfgpq.Port, cfgpq.Database)
-
-	logrus.Info("connecting to database client...")
-	clientPSQL, err := pgclient.NewClient(context.Background(), 5, pgConfig)
+	logrus.Info("connecting to postgresql...")
+	clientPSQL, err := pgclient.NewClient(context.Background(), 5, &pgclient.PgConfig{
+		Username: cfg.PostgreSQL.Username,
+		Password: cfg.PostgreSQL.Password,
+		Host: cfg.PostgreSQL.Host,
+		Port: cfg.PostgreSQL.Port,
+		Database: cfg.PostgreSQL.Database,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to database: %w", err)
+		return nil, fmt.Errorf("failed to connect to postgresql: %w", err)
 	}
 
+	logrus.Info("connecting to redis...")
+	clientRedis, err := redisclient.NewClient(cfg.Redis.Host, cfg.Redis.Port, cfg.Redis.Password, cfg.Redis.Database)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to redis: %w", err)
+	}
+	
+	logrus.Info("connecting to s3...")
 	clientS3, err := s3client.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create s3 client: %w", err)
 	}
 
 	pgRepositories := pg.NewRepositories(clientPSQL)
+	redisRepositories := redis.NewRepositories(clientRedis)
 	s3Repositories := s3.NewRepositories(clientS3, cfg.S3.BucketName)
-	usecases := usecase.NewUseCases(pgRepositories, s3Repositories)
+
+	usecases := usecase.NewUseCases(pgRepositories, s3Repositories, redisRepositories)
+	
 	handler := v1.NewHandler(usecases, cfg.HTTP.BytesLimit, cfg.HTTP.MaxLimit)
 
 	server := &http.Server{

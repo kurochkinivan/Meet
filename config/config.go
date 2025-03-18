@@ -21,10 +21,6 @@ type Config struct {
 		MaxLimit     int64         `yaml:"max_limit" env:"HTTP_MAX_LIMIT" env-required:"true"`
 	} `yaml:"http"`
 
-	S3 struct {
-		BucketName string `yaml:"bucket_name" env:"S3_BUCKET_NAME" env-required:"true"`
-	} `yaml:"s3"`
-
 	PostgreSQL struct {
 		Host     string `yaml:"host" env:"PSQL_HOST" env-required:"true"`
 		Port     string `yaml:"port" env:"PSQL_PORT" env-required:"true"`
@@ -32,6 +28,17 @@ type Config struct {
 		Password string `yaml:"password" env:"PSQL_PASSWORD" env-required:"true"`
 		Database string `yaml:"database" env:"PSQL_DATABASE" env-required:"true"`
 	} `yaml:"postgresql"`
+
+	Redis struct {
+		Host     string `yaml:"host" env:"REDIS_HOST" env-required:"true"`
+		Port     string `yaml:"port" env:"REDIS_PORT" env-required:"true"`
+		Password string `yaml:"password" env:"REDIS_PASSWORD" env-required:"true"`
+		Database int    `yaml:"database" env:"REDIS_DATABASE" env-required:"true"`
+	} `yaml:"redis"`
+
+	S3 struct {
+		BucketName string `yaml:"bucket_name" env:"S3_BUCKET_NAME" env-required:"true"`
+	} `yaml:"s3"`
 }
 
 func MustLoad() *Config {

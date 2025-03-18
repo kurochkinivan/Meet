@@ -9,6 +9,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type PgConfig struct {
+	Username string
+	Password string
+	Host     string
+	Port     string
+	Database string
+}
+
 func NewClient(ctx context.Context, maxAttempts int, cfg *PgConfig) (*pgxpool.Pool, error) {
 	connString := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s", cfg.Username, cfg.Password, cfg.Host, cfg.Port, cfg.Database)
 	pgConfig, err := pgxpool.ParseConfig(connString)

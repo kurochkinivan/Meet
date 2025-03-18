@@ -20,15 +20,16 @@ func WithHTTPStatus(err error, status int) error {
 	}
 }
 
+var statusErr interface {
+	error
+	HTTPStatus() int
+}
+
 func HTTPStatus(err error) int {
 	if err == nil {
-		return 0
+		return http.StatusTeapot
 	}
 
-	var statusErr interface {
-		error
-		HTTPStatus() int
-	}
 	if errors.As(err, &statusErr) {
 		return statusErr.HTTPStatus()
 	}
