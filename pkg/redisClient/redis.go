@@ -21,10 +21,10 @@ func NewClient(host, port, password string, database int) (*redis.Client, error)
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		status := client.Ping(ctx)
-		if status.Err() != nil {
+		err := client.Ping(ctx).Err()
+		if err != nil {
 			logrus.Warn("failed to connect to redis, retrying...")
-			return status.Err()
+			return err
 		}
 
 		return nil
