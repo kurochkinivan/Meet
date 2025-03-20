@@ -14,7 +14,7 @@ type Handler interface {
 func NewHandler(usecases *usecase.UseCases, bytesLimit, maxMemory int64) http.Handler {
 	r := httprouter.New()
 
-	authHandler := NewAuthHandler(bytesLimit, usecases.AuthUseCase)
+	authHandler := NewAuthHandler(bytesLimit, usecases.UserUseCase)
 	authHandler.Register(r)
 
 	userHandler := NewUserHandler(bytesLimit, maxMemory, usecases.UserUseCase, usecases.PhotoUseCase)

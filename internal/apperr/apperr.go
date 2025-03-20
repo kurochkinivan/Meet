@@ -10,6 +10,13 @@ type statusError struct {
 	status int
 }
 
+func NewStatusErr(err error, status int) error {
+	return &statusError{
+		error:  err,
+		status: status,
+	}
+}
+
 func (e *statusError) UnWrap() error   { return e.error }
 func (e *statusError) HTTPStatus() int { return e.status }
 

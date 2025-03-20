@@ -24,7 +24,7 @@ func NewUserRepository(client *redis.Client, LFUCapacity int64, expiration time.
 }
 
 func (r *UserRepository) Get(ctx context.Context, userID string) (*entity.User, bool) {
-	key := fmt.Sprintf("user:%s", userID)
+	key := getKey(userID)
 	userStr, err := r.cache.Get(ctx, key)
 	if err != nil {
 		if !errors.Is(err, redis.Nil) {
@@ -44,7 +44,7 @@ func (r *UserRepository) Get(ctx context.Context, userID string) (*entity.User, 
 }
 
 func (r *UserRepository) Set(ctx context.Context, user *entity.User) error {
-	key := fmt.Sprintf("user:%s", user.UUID)
+	key := getKey(user.UUID.String())
 	userData, err := json.Marshal(user)
 	if err != nil {
 		return fmt.Errorf("failed to marshal data for user %q: %w", user.UUID, err)
@@ -56,4 +56,18 @@ func (r *UserRepository) Set(ctx context.Context, user *entity.User) error {
 	}
 
 	return nil
+}
+
+func (r *UserRepository) Delete(ctx context.Context, userID string) error {
+	key := getKey(userID)
+	err := r.cache.Del(ctx, key)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func getKey(userID string) string {
+	return fmt.Sprintf("user:%s", userID)
 }

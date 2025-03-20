@@ -153,7 +153,7 @@ func (r *PhotoRepository) GetPhoto(ctx context.Context, photoID string) (*entity
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, apperr.WithHTTPStatus(pgclient.ErrNoRows, http.StatusBadRequest)
+			return nil, apperr.ErrNoRows
 		}
 		return nil, apperr.WithHTTPStatus(pgclient.ErrScan(op, err), http.StatusInternalServerError)
 	}

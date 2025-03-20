@@ -93,6 +93,7 @@ func (h *UserHandler) getUser(w http.ResponseWriter, r *http.Request, p httprout
 		Email:     user.Email,
 		Location:  user.Location,
 		CreatedAt: user.CreatedAt,
+		Photos:    make([]photoResponse, 0, len(user.Photos)),
 	}
 
 	for _, photo := range user.Photos {
@@ -114,7 +115,6 @@ func (h *UserHandler) getUser(w http.ResponseWriter, r *http.Request, p httprout
 type (
 	getPhotosRepsponse struct {
 		Photos []photoResponse `json:"photos"`
-		Total  int             `json:"total"`
 	}
 )
 
@@ -127,7 +127,7 @@ func (h *UserHandler) getPhotos(w http.ResponseWriter, r *http.Request, p httpro
 	}
 
 	resp := &getPhotosRepsponse{
-		Total: len(photos),
+		Photos: make([]photoResponse, 0, len(photos)),
 	}
 	for _, photo := range photos {
 		resp.Photos = append(resp.Photos, photoResponse{
@@ -153,6 +153,8 @@ func (h *UserHandler) deletePhoto(w http.ResponseWriter, r *http.Request, p http
 	if err != nil {
 		return err
 	}
+
+	w.WriteHeader(http.StatusNoContent)
 
 	return nil
 }

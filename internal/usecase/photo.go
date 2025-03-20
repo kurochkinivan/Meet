@@ -16,13 +16,15 @@ import (
 type PhotoUseCase struct {
 	PhotoStorage
 	PhotoCloud
+	PhotoCache
 	photoLimit int
 }
 
-func NewPhotoUseCase(storage PhotoStorage, cloud PhotoCloud, photoLimit int) *PhotoUseCase {
+func NewPhotoUseCase(storage PhotoStorage, cloud PhotoCloud, cache PhotoCache, photoLimit int) *PhotoUseCase {
 	return &PhotoUseCase{
 		PhotoStorage: storage,
 		PhotoCloud:   cloud,
+		PhotoCache:   cache,
 		photoLimit:   photoLimit,
 	}
 }
@@ -37,6 +39,10 @@ type PhotoStorage interface {
 type PhotoCloud interface {
 	UploadPhoto(ctx context.Context, userID string, file io.Reader) (url string, objectKey string, err error)
 	DeletePhoto(ctx context.Context, objectKey string) error
+}
+
+type PhotoCache interface {
+	Delete(ctx context.Context, userID string) error
 }
 
 func (u *PhotoUseCase) UploadPhotos(ctx context.Context, userID string, files []*multipart.FileHeader) error {
@@ -78,6 +84,11 @@ func (u *PhotoUseCase) UploadPhotos(ctx context.Context, userID string, files []
 		})
 	}
 
+	err = u.PhotoCache.Delete(ctx, userID)
+	if err != nil {
+		return err
+	}
+
 	return erg.Wait()
 }
 
@@ -93,6 +104,9 @@ func (u *PhotoUseCase) GetPhotos(ctx context.Context, userID string) ([]*entity.
 func (u *PhotoUseCase) DeletePhoto(ctx context.Context, userID string, photoID string) error {
 	photo, err := u.PhotoStorage.GetPhoto(ctx, photoID)
 	if err != nil {
+		if errors.Is(err, apperr.ErrNoRows) {
+			return nil
+		}
 		return fmt.Errorf("failed to get photo, err: %w", err)
 	}
 
@@ -108,6 +122,11 @@ func (u *PhotoUseCase) DeletePhoto(ctx context.Context, userID string, photoID s
 			return fmt.Errorf("failed to delete photo from cloud: %w, rollback failed: %w", err, errCreate)
 		}
 		return fmt.Errorf("failed to delete photo from cloud, rollback db delete, err: %w", err)
+	}
+
+	err = u.PhotoCache.Delete(ctx, userID)
+	if err != nil {
+		return err
 	}
 
 	return nil

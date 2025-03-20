@@ -97,7 +97,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*entity.
 	return user, nil
 }
 
-func (r *UserRepository) GetUserIfExists(ctx context.Context, email, password string) (*entity.User, error) {
+func (r *UserRepository) GetIfExists(ctx context.Context, email, password string) (*entity.User, error) {
 	op := "GetUserIfExists"
 
 	sql, args, err := r.qb.
@@ -127,7 +127,7 @@ func (r *UserRepository) GetUserIfExists(ctx context.Context, email, password st
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, apperr.WithHTTPStatus(err, http.StatusUnauthorized)
+			return nil, apperr.WithHTTPStatus(apperr.ErrNoRows, http.StatusUnauthorized)
 		}
 		return nil, pgclient.ErrScan(op, err)
 	}
@@ -157,12 +157,12 @@ func (r *UserRepository) GetByID(ctx context.Context, userID string) (*entity.Us
 		return nil, apperr.WithHTTPStatus(pgclient.ErrCreateQuery(op, err), http.StatusInternalServerError)
 	}
 
-	user := &entity.User{}
 	rows, err := r.client.Query(ctx, query, args...)
 	if err != nil {
 		return nil, apperr.WithHTTPStatus(pgclient.ErrDoQuery(op, err), http.StatusInternalServerError)
 	}
 
+	user := &entity.User{Photos: make([]*entity.Photo, 0)}
 	for rows.Next() {
 		var photoID sql.NullInt64
 		var photoURL sql.NullString

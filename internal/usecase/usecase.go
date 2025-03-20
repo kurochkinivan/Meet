@@ -8,15 +8,13 @@ import (
 )
 
 type UseCases struct {
-	*AuthUseCase
 	*PhotoUseCase
 	*UserUseCase
 }
 
 func NewUseCases(cfg *config.Config, PGrepositories *pg.Repositories, S3Repositoires *s3.Repositories, redisRepositories *redis.Repositories) *UseCases {
 	return &UseCases{
-		AuthUseCase:  NewAuthUseCase(PGrepositories.UserRepository),
-		PhotoUseCase: NewPhotoUseCase(PGrepositories.PhotoRepository, S3Repositoires.PhotoRepository, int(cfg.S3.PhotoLimit)),
+		PhotoUseCase: NewPhotoUseCase(PGrepositories.PhotoRepository, S3Repositoires.PhotoRepository, redisRepositories.UserRepository, int(cfg.S3.PhotoLimit)),
 		UserUseCase:  NewUserUseCase(PGrepositories.UserRepository, redisRepositories.UserRepository),
 	}
 }
