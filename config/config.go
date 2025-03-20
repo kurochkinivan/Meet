@@ -33,13 +33,14 @@ type Config struct {
 		Host        string        `yaml:"host" env:"REDIS_HOST" env-required:"true"`
 		Port        string        `yaml:"port" env:"REDIS_PORT" env-required:"true"`
 		Password    string        `yaml:"password" env:"REDIS_PASSWORD" env-required:"true"`
-		Database    *int          `yaml:"database" env:"REDIS_DATABASE" env-required:"true"`
+		Database    *int64        `yaml:"database" env:"REDIS_DATABASE" env-required:"true"`
 		LFUCapacity int64         `yaml:"lfu_capacity" env:"REDIS_LFU_CAPACITY" env-required:"true"`
 		Expiration  time.Duration `yaml:"expiration" env:"REDIS_EXPIRATION" env-required:"true"`
 	} `yaml:"redis"`
 
 	S3 struct {
 		BucketName string `yaml:"bucket_name" env:"S3_BUCKET_NAME" env-required:"true"`
+		PhotoLimit int64  `yaml:"photo_limit" env:"S3_PHOTO_LIMIT" env-required:"true"`
 	} `yaml:"s3"`
 }
 

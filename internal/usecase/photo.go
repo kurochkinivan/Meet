@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -13,30 +14,41 @@ import (
 )
 
 type PhotoUseCase struct {
-	PhotoStorageRepository
-	PhotoCloudRepository
+	PhotoStorage
+	PhotoCloud
+	photoLimit int
 }
 
-func NewPhotoUseCase(storage PhotoStorageRepository, cloud PhotoCloudRepository) *PhotoUseCase {
+func NewPhotoUseCase(storage PhotoStorage, cloud PhotoCloud, photoLimit int) *PhotoUseCase {
 	return &PhotoUseCase{
-		PhotoStorageRepository: storage,
-		PhotoCloudRepository:   cloud,
+		PhotoStorage: storage,
+		PhotoCloud:   cloud,
+		photoLimit:   photoLimit,
 	}
 }
 
-type PhotoStorageRepository interface {
+type PhotoStorage interface {
 	CreatePhoto(ctx context.Context, userID string, url string, objectKey string) error
 	GetPhotos(ctx context.Context, userID string) ([]*entity.Photo, error)
 	GetPhoto(ctx context.Context, photoID string) (*entity.Photo, error)
 	DeletePhoto(ctx context.Context, userID string, photoID string) error
 }
 
-type PhotoCloudRepository interface {
+type PhotoCloud interface {
 	UploadPhoto(ctx context.Context, userID string, file io.Reader) (url string, objectKey string, err error)
 	DeletePhoto(ctx context.Context, objectKey string) error
 }
 
 func (u *PhotoUseCase) UploadPhotos(ctx context.Context, userID string, files []*multipart.FileHeader) error {
+	photos, err := u.PhotoStorage.GetPhotos(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to get all photos, err: %w", err)
+	}
+
+	if len(photos)+len(files) > u.photoLimit {
+		return apperr.WithHTTPStatus(errors.New("photo limit exceeded"), http.StatusBadRequest)
+	}
+
 	erg, ctx := errgroup.WithContext(ctx)
 	erg.SetLimit(10)
 
@@ -48,14 +60,14 @@ func (u *PhotoUseCase) UploadPhotos(ctx context.Context, userID string, files []
 			}
 			defer f.Close()
 
-			url, objectKey, err := u.PhotoCloudRepository.UploadPhoto(ctx, userID, f)
+			url, objectKey, err := u.PhotoCloud.UploadPhoto(ctx, userID, f)
 			if err != nil {
 				return fmt.Errorf("failed to upload photo, err: %w", err)
 			}
 
-			err = u.PhotoStorageRepository.CreatePhoto(ctx, userID, url, objectKey)
+			err = u.PhotoStorage.CreatePhoto(ctx, userID, url, objectKey)
 			if err != nil {
-				errDelete := u.PhotoCloudRepository.DeletePhoto(ctx, objectKey)
+				errDelete := u.PhotoCloud.DeletePhoto(ctx, objectKey)
 				if errDelete != nil {
 					return fmt.Errorf("failed to create photo: %w; rollback failed: %v", err, errDelete)
 				}
@@ -70,7 +82,7 @@ func (u *PhotoUseCase) UploadPhotos(ctx context.Context, userID string, files []
 }
 
 func (u *PhotoUseCase) GetPhotos(ctx context.Context, userID string) ([]*entity.Photo, error) {
-	photos, err := u.PhotoStorageRepository.GetPhotos(ctx, userID)
+	photos, err := u.PhotoStorage.GetPhotos(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all photos, err: %w", err)
 	}
@@ -79,19 +91,19 @@ func (u *PhotoUseCase) GetPhotos(ctx context.Context, userID string) ([]*entity.
 }
 
 func (u *PhotoUseCase) DeletePhoto(ctx context.Context, userID string, photoID string) error {
-	photo, err := u.PhotoStorageRepository.GetPhoto(ctx, photoID)
+	photo, err := u.PhotoStorage.GetPhoto(ctx, photoID)
 	if err != nil {
 		return fmt.Errorf("failed to get photo, err: %w", err)
 	}
 
-	err = u.PhotoStorageRepository.DeletePhoto(ctx, userID, photoID)
+	err = u.PhotoStorage.DeletePhoto(ctx, userID, photoID)
 	if err != nil {
 		return fmt.Errorf("failed to delete photo, err: %w", err)
 	}
 
-	err = u.PhotoCloudRepository.DeletePhoto(ctx, photo.ObjectKey)
+	err = u.PhotoCloud.DeletePhoto(ctx, photo.ObjectKey)
 	if err != nil {
-		errCreate := u.PhotoStorageRepository.CreatePhoto(ctx, photo.UserID.String(), photo.URL, photo.ObjectKey)
+		errCreate := u.PhotoStorage.CreatePhoto(ctx, photo.UserID.String(), photo.URL, photo.ObjectKey)
 		if errCreate != nil {
 			return fmt.Errorf("failed to delete photo from cloud: %w, rollback failed: %w", err, errCreate)
 		}

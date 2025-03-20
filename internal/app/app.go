@@ -30,8 +30,8 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	clientPSQL, err := pgclient.NewClient(context.Background(), 5, &pgclient.PgConfig{
 		Username: cfg.PostgreSQL.Username,
 		Password: cfg.PostgreSQL.Password,
-		Host: cfg.PostgreSQL.Host,
-		Port: cfg.PostgreSQL.Port,
+		Host:     cfg.PostgreSQL.Host,
+		Port:     cfg.PostgreSQL.Port,
 		Database: cfg.PostgreSQL.Database,
 	})
 	if err != nil {
@@ -39,11 +39,11 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 
 	logrus.Info("connecting to redis...")
-	clientRedis, err := redisclient.NewClient(cfg.Redis.Host, cfg.Redis.Port, cfg.Redis.Password, *cfg.Redis.Database)
+	clientRedis, err := redisclient.NewClient(cfg.Redis.Host, cfg.Redis.Port, cfg.Redis.Password, int(*cfg.Redis.Database))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to redis: %w", err)
 	}
-	
+
 	logrus.Info("connecting to s3...")
 	clientS3, err := s3client.NewClient(ctx)
 	if err != nil {
@@ -54,8 +54,8 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	redisRepositories := redis.NewRepositories(clientRedis, cfg.Redis.LFUCapacity, cfg.Redis.Expiration)
 	s3Repositories := s3.NewRepositories(clientS3, cfg.S3.BucketName)
 
-	usecases := usecase.NewUseCases(pgRepositories, s3Repositories, redisRepositories)
-	
+	usecases := usecase.NewUseCases(cfg, pgRepositories, s3Repositories, redisRepositories)
+
 	handler := v1.NewHandler(usecases, cfg.HTTP.BytesLimit, cfg.HTTP.MaxLimit)
 
 	server := &http.Server{

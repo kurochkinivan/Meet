@@ -26,3 +26,4 @@ redis:
 
 s3:
   bucket_name: 'meet'
+  photo_limit: 5
