@@ -67,7 +67,9 @@ type (
 	getUserResponse struct {
 		UUID      uuid.UUID          `json:"uuid"`
 		Name      string             `json:"name"`
-		Email     string             `json:"email"`
+		Birthday  time.Time          `json:"birthday"`
+		Sex       string             `json:"sex"`
+		Phone     string             `json:"phone"`
 		Location  entity.Coordiantes `json:"location"`
 		CreatedAt time.Time          `json:"created_at"`
 		Photos    []photoResponse    `json:"photos"`
@@ -90,7 +92,9 @@ func (h *UserHandler) getUser(w http.ResponseWriter, r *http.Request, p httprout
 	resp := getUserResponse{
 		UUID:      user.UUID,
 		Name:      user.Name,
-		Email:     user.Email,
+		Birthday:  user.BirthDay,
+		Sex:       user.Sex,
+		Phone:     user.Phone,
 		Location:  user.Location,
 		CreatedAt: user.CreatedAt,
 		Photos:    make([]photoResponse, 0, len(user.Photos)),

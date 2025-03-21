@@ -9,7 +9,9 @@ import (
 type User struct {
 	UUID      uuid.UUID
 	Name      string
-	Email     string
+	BirthDay  time.Time
+	Sex       string
+	Phone     string
 	Password  string
 	Location  Coordiantes
 	CreatedAt time.Time

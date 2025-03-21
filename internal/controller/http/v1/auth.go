@@ -16,7 +16,7 @@ import (
 
 type AuthUseCase interface {
 	Register(ctx context.Context, user *entity.User) (*entity.User, error)
-	AuthenticateEmail(ctx context.Context, email, password string) (*entity.User, error)
+	AuthenticatePhone(ctx context.Context, phone, password string) (*entity.User, error)
 	AuthenticateOAuth(ctx context.Context, OAuth string) (*entity.User, error)
 }
 
@@ -39,9 +39,18 @@ func (h *AuthHandler) Register(r *httprouter.Router) {
 }
 
 type (
+	userCoordinates struct {
+		Longitude float64 `json:"longitude"`
+		Latitude  float64 `json:"latitude"`
+	}
+)
+
+type (
 	registerReq struct {
 		Name     string `json:"name"`
-		Email    string `json:"email"`
+		Birthday string `json:"birthday"`
+		Sex      string `json:"sex"`
+		Phone    string `json:"phone"`
 		Password string `json:"password"`
 		Location struct {
 			Type        string             `json:"type"`
@@ -50,11 +59,13 @@ type (
 	}
 
 	registerResp struct {
-		UUID      uuid.UUID          `json:"uuid"`
-		Name      string             `json:"name"`
-		Email     string             `json:"email"`
-		Location  entity.Coordiantes `json:"location"`
-		CreatedAt time.Time          `json:"created_at"`
+		UUID      uuid.UUID       `json:"uuid"`
+		Name      string          `json:"name"`
+		Birthday  string          `json:"birthday"`
+		Sex       string          `json:"sex"`
+		Phone     string          `json:"phone"`
+		Location  userCoordinates `json:"location"`
+		CreatedAt string          `json:"created_at"`
 	}
 )
 
@@ -66,23 +77,38 @@ func (h *AuthHandler) register(w http.ResponseWriter, r *http.Request, p httprou
 	}
 	defer r.Body.Close()
 
+	birthday, err := time.Parse(time.DateOnly, req.Birthday)
+	if err != nil {
+		return apperr.WithHTTPStatus(err, http.StatusBadRequest)
+	}
+
 	user, err := h.AuthUseCase.Register(r.Context(), &entity.User{
 		Name:     req.Name,
-		Email:    req.Email,
+		Phone:    req.Phone,
+		BirthDay: birthday,
+		Sex:      req.Sex,
 		Password: req.Password,
 		Location: req.Location.Coordinates,
 	})
 	if err != nil {
+		if errors.Is(err, apperr.ErrUserExists) {
+			return apperr.WithHTTPStatus(err, http.StatusUnauthorized)
+		}
 		return err
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(registerResp{
-		UUID:      user.UUID,
-		Name:      user.Name,
-		Email:     user.Email,
-		Location:  user.Location,
-		CreatedAt: user.CreatedAt,
+		UUID:     user.UUID,
+		Name:     user.Name,
+		Birthday: user.BirthDay.Format(time.DateOnly),
+		Sex:      user.Sex,
+		Phone:    user.Phone,
+		Location: userCoordinates{
+			Longitude: user.Location.Longitude,
+			Latitude:  user.Location.Latitude,
+		},
+		CreatedAt: user.CreatedAt.Format(time.DateTime),
 	})
 	if err != nil {
 		return apperr.WithHTTPStatus(err, http.StatusInternalServerError)
@@ -94,16 +120,18 @@ func (h *AuthHandler) register(w http.ResponseWriter, r *http.Request, p httprou
 type (
 	loginReq struct {
 		OAuthToken string `json:"oauth_token"`
-		Email      string `json:"email"`
+		Phone      string `json:"phone"`
 		Password   string `json:"password"`
 	}
 
 	loginResp struct {
-		UUID      uuid.UUID          `json:"uuid"`
-		Name      string             `json:"name"`
-		Email     string             `json:"email"`
-		Location  entity.Coordiantes `json:"location"`
-		CreatedAt time.Time          `json:"created_at"`
+		UUID      uuid.UUID       `json:"uuid"`
+		Name      string          `json:"name"`
+		Birthday  string          `json:"birthday"`
+		Sex       string          `json:"sex"`
+		Phone     string          `json:"phone"`
+		Location  userCoordinates `json:"location"`
+		CreatedAt string          `json:"created_at"`
 	}
 )
 
@@ -118,12 +146,12 @@ func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request, p httprouter
 	}
 	defer r.Body.Close()
 
-	hasCreds := req.Email != "" || req.Password != ""
+	hasCreds := req.Phone != "" || req.Password != ""
 	hasToken := req.OAuthToken != ""
 	if hasCreds && hasToken {
-		return errors.New("either OAuthToken or Email/Password should be provided, not both")
-	} else if !hasToken && (req.Email == "" || req.Password == "") {
-		return errors.New("either OAuthToken or Email/Password must be provided")
+		return errors.New("either OAuthToken or Phone/Password should be provided, not both")
+	} else if !hasToken && (req.Phone == "" || req.Password == "") {
+		return errors.New("either OAuthToken or Phone/Password must be provided")
 	}
 
 	var user *entity.User
@@ -133,18 +161,23 @@ func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request, p httprouter
 			return err
 		}
 	} else {
-		user, err = h.AuthUseCase.AuthenticateEmail(r.Context(), req.Email, req.Password)
+		user, err = h.AuthUseCase.AuthenticatePhone(r.Context(), req.Phone, req.Password)
 		if err != nil {
 			return err
 		}
 	}
 
 	err = json.NewEncoder(w).Encode(&loginResp{
-		UUID:      user.UUID,
-		Name:      user.Name,
-		Email:     user.Email,
-		Location:  user.Location,
-		CreatedAt: user.CreatedAt,
+		UUID:     user.UUID,
+		Name:     user.Name,
+		Birthday: user.BirthDay.Format(time.DateOnly),
+		Sex:      user.Sex,
+		Phone:    user.Phone,
+		Location: userCoordinates{
+			Longitude: user.Location.Longitude,
+			Latitude:  user.Location.Latitude,
+		},
+		CreatedAt: user.CreatedAt.Format(time.DateTime),
 	})
 	if err != nil {
 		return apperr.WithHTTPStatus(err, http.StatusInternalServerError)

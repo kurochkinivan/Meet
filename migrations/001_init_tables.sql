@@ -3,11 +3,14 @@ CREATE EXTENSION postgis;
 CREATE TABLE IF NOT EXISTS users (
     id UUID DEFAULT gen_random_uuid() NOT NULL,
     name TEXT NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    location GEOGRAPHY(Point, 4326) NOT NULL,
+    birthday DATE NOT NULL,
+    sex TEXT NOT NULL,
+    phone TEXT UNIQUE NOT NULL,
+    password TEXT,
+    location GEOGRAPHY(Point, 4326),
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id),
+    CONSTRAINT sex_check CHECK (sex IN ('male', 'female'))
 );
 
 CREATE TABLE IF NOT EXISTS photos (

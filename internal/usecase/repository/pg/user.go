@@ -34,58 +34,62 @@ func (r *UserRepository) CreateIfNotExists(ctx context.Context, user *entity.Use
 		Insert(TableUsers).
 		Columns(
 			"name",
-			"email",
+			"birthday",
+			"sex",
+			"phone",
 			"password",
 			"location",
 		).
 		Values(
 			user.Name,
-			user.Email,
+			user.BirthDay,
+			user.Sex,
+			user.Phone,
 			user.Password,
 			sq.Expr("ST_SetSRID(ST_MakePoint(?, ?), 4326)", user.Location.Longitude, user.Location.Latitude),
 		).
-		Suffix("ON CONFLICT (email) DO NOTHING").
+		Suffix("ON CONFLICT (phone) DO NOTHING").
 		ToSql()
 	if err != nil {
 		return apperr.WithHTTPStatus(pgclient.ErrCreateQuery(op, err), http.StatusInternalServerError)
 	}
 
-	commTag, err := r.client.Exec(ctx, sql, args...)
+	_, err = r.client.Exec(ctx, sql, args...)
 	if err != nil {
 		return apperr.WithHTTPStatus(pgclient.ErrExec(op, err), http.StatusInternalServerError)
-	}
-
-	if commTag.RowsAffected() == 0 {
-		return apperr.WithHTTPStatus(pgclient.ErrNoRowsAffected, http.StatusConflict)
 	}
 
 	return nil
 }
 
-func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*entity.User, error) {
-	op := "GetByEmail"
+func (r *UserRepository) GetByPhone(ctx context.Context, phone string) (*entity.User, error) {
+	op := "GetByphone"
 
 	sql, args, err := r.qb.
 		Select(
 			"id",
 			"name",
-			"email",
+			"birthday",
+			"sex",
+			"phone",
 			"ST_X(location::geometry) AS longitude",
 			"ST_Y(location::geometry) AS latitude",
 			"created_at",
 		).
 		From(TableUsers).
-		Where(sq.Eq{"email": email}).
+		Where(sq.Eq{"phone": phone}).
 		ToSql()
 	if err != nil {
 		return nil, apperr.WithHTTPStatus(pgclient.ErrCreateQuery(op, err), http.StatusInternalServerError)
 	}
 
-	user := &entity.User{}
+	var user entity.User
 	err = r.client.QueryRow(ctx, sql, args...).Scan(
 		&user.UUID,
 		&user.Name,
-		&user.Email,
+		&user.BirthDay,
+		&user.Sex,
+		&user.Phone,
 		&user.Location.Longitude,
 		&user.Location.Latitude,
 		&user.CreatedAt,
@@ -94,33 +98,37 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*entity.
 		return nil, apperr.WithHTTPStatus(pgclient.ErrScan(op, err), http.StatusInternalServerError)
 	}
 
-	return user, nil
+	return &user, nil
 }
 
-func (r *UserRepository) GetIfExists(ctx context.Context, email, password string) (*entity.User, error) {
+func (r *UserRepository) GetIfExists(ctx context.Context, phone, password string) (*entity.User, error) {
 	op := "GetUserIfExists"
 
 	sql, args, err := r.qb.
 		Select(
 			"id",
 			"name",
-			"email",
+			"birthday",
+			"sex",
+			"phone",
 			"ST_X(location::geometry) AS longitude",
 			"ST_Y(location::geometry) AS latitude",
 			"created_at",
 		).
 		From(TableUsers).
-		Where(sq.And{sq.Eq{"email": email}, sq.Eq{"password": password}}).
+		Where(sq.And{sq.Eq{"phone": phone}, sq.Eq{"password": password}}).
 		ToSql()
 	if err != nil {
 		return nil, apperr.WithHTTPStatus(pgclient.ErrCreateQuery(op, err), http.StatusInternalServerError)
 	}
 
-	user := &entity.User{}
+	var user entity.User
 	err = r.client.QueryRow(ctx, sql, args...).Scan(
 		&user.UUID,
 		&user.Name,
-		&user.Email,
+		&user.BirthDay,
+		&user.Sex,
+		&user.Phone,
 		&user.Location.Longitude,
 		&user.Location.Latitude,
 		&user.CreatedAt,
@@ -132,7 +140,7 @@ func (r *UserRepository) GetIfExists(ctx context.Context, email, password string
 		return nil, pgclient.ErrScan(op, err)
 	}
 
-	return user, nil
+	return &user, nil
 }
 
 func (r *UserRepository) GetByID(ctx context.Context, userID string) (*entity.User, error) {
@@ -142,7 +150,9 @@ func (r *UserRepository) GetByID(ctx context.Context, userID string) (*entity.Us
 		Select(
 			usersField("id"),
 			usersField("name"),
-			usersField("email"),
+			usersField("birthday"),
+			usersField("sex"),
+			usersField("phone"),
 			"ST_X(users.location::geometry) AS longitude",
 			"ST_Y(users.location::geometry) AS latitude",
 			usersField("created_at"),
@@ -170,7 +180,9 @@ func (r *UserRepository) GetByID(ctx context.Context, userID string) (*entity.Us
 		err = rows.Scan(
 			&user.UUID,
 			&user.Name,
-			&user.Email,
+			&user.BirthDay,
+			&user.Sex,
+			&user.Phone,
 			&user.Location.Longitude,
 			&user.Location.Latitude,
 			&user.CreatedAt,
@@ -191,4 +203,27 @@ func (r *UserRepository) GetByID(ctx context.Context, userID string) (*entity.Us
 	}
 
 	return user, nil
+}
+
+func (r *UserRepository) Exists(ctx context.Context, phone string) (bool, error) {
+	op := "Exists"
+
+	sql, args, err := r.qb.
+		Select("1").
+		Prefix("SELECT EXISTS (").
+		From(TableUsers).
+		Where(sq.Eq{"phone": phone}).
+		Suffix(")").
+		ToSql()
+	if err != nil {
+		return false, apperr.WithHTTPStatus(pgclient.ErrCreateQuery(op, err), http.StatusInternalServerError)
+	}
+
+	var exists bool
+	err = r.client.QueryRow(ctx, sql, args...).Scan(&exists)
+	if err != nil {
+		return false, apperr.WithHTTPStatus(pgclient.ErrScan(op, err), http.StatusInternalServerError)
+	}
+
+	return exists, nil
 }

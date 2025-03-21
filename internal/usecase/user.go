@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"time"
 
+	"github.com/kurochkinivan/Meet/internal/apperr"
 	"github.com/kurochkinivan/Meet/internal/entity"
 	yandexoauth "github.com/kurochkinivan/Meet/internal/external/yandexOAuth"
 	"github.com/sirupsen/logrus"
@@ -23,10 +25,11 @@ func NewUserUseCase(userStorage UserStorage, userCache UserCache) *UserUseCase {
 }
 
 type UserStorage interface {
-	GetByID(ctx context.Context, userID string) (*entity.User, error)
+	Exists(ctx context.Context, phone string) (bool, error)
 	CreateIfNotExists(ctx context.Context, user *entity.User) error
-	GetByEmail(ctx context.Context, email string) (*entity.User, error)
-	GetIfExists(ctx context.Context, email, password string) (*entity.User, error)
+	GetByID(ctx context.Context, userID string) (*entity.User, error)
+	GetByPhone(ctx context.Context, phone string) (*entity.User, error)
+	GetIfExists(ctx context.Context, phone, password string) (*entity.User, error)
 }
 
 type UserCache interface {
@@ -53,12 +56,21 @@ func (u *UserUseCase) GetUserByID(ctx context.Context, userID string) (*entity.U
 
 func (u *UserUseCase) Register(ctx context.Context, user *entity.User) (*entity.User, error) {
 	user.Password = u.hashPassword(user.Password)
-	err := u.UserStorage.CreateIfNotExists(ctx, user)
+	exists, err := u.UserStorage.Exists(ctx, user.Phone)
 	if err != nil {
 		return nil, err
 	}
 
-	user, err = u.UserStorage.GetByEmail(ctx, user.Email)
+	if exists {
+		return nil, apperr.ErrUserExists
+	}
+
+	err = u.UserStorage.CreateIfNotExists(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err = u.UserStorage.GetByPhone(ctx, user.Phone)
 	if err != nil {
 		return nil, err
 	}
@@ -66,8 +78,8 @@ func (u *UserUseCase) Register(ctx context.Context, user *entity.User) (*entity.
 	return user, nil
 }
 
-func (u *UserUseCase) AuthenticateEmail(ctx context.Context, email, password string) (*entity.User, error) {
-	user, err := u.UserStorage.GetIfExists(ctx, email, u.hashPassword(password))
+func (u *UserUseCase) AuthenticatePhone(ctx context.Context, phone, password string) (*entity.User, error) {
+	user, err := u.UserStorage.GetIfExists(ctx, phone, u.hashPassword(password))
 	if err != nil {
 		return nil, err
 	}
@@ -76,12 +88,34 @@ func (u *UserUseCase) AuthenticateEmail(ctx context.Context, email, password str
 }
 
 func (u *UserUseCase) AuthenticateOAuth(ctx context.Context, OAuth string) (*entity.User, error) {
-	err := yandexoauth.GetInfoByToken(ctx, OAuth)
+	yandexResponse, err := yandexoauth.ParseOAuthToken(ctx, OAuth)
 	if err != nil {
 		return nil, err
 	}
 
-	return nil, nil
+	birthday, err := time.Parse(time.DateOnly, yandexResponse.Birthday)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse birthday: %w", err)
+	}
+
+	user := &entity.User{
+		Name:     yandexResponse.FirstName,
+		BirthDay: birthday,
+		Sex:      yandexResponse.Sex,
+		Phone:    yandexResponse.Phone.Number,
+	}
+
+	err = u.UserStorage.CreateIfNotExists(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err = u.UserStorage.GetByPhone(ctx, user.Phone)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
 }
 
 func (u *UserUseCase) hashPassword(password string) string {
