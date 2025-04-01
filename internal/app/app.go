@@ -26,8 +26,13 @@ type App struct {
 }
 
 func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
-	logrus.Info("connecting to postgresql...")
-	clientPSQL, err := pgclient.NewClient(context.Background(), 5, &pgclient.PgConfig{
+	logrus.WithFields(logrus.Fields{
+		"username": cfg.PostgreSQL.Username,
+		"port":     cfg.PostgreSQL.Port,
+		"host":     cfg.PostgreSQL.Host,
+		"database": cfg.PostgreSQL.Database,
+	}).Info("connecting to postgresql...")
+	clientPSQL, err := pgclient.NewClient(ctx, 5, &pgclient.PgConfig{
 		Username: cfg.PostgreSQL.Username,
 		Password: cfg.PostgreSQL.Password,
 		Host:     cfg.PostgreSQL.Host,
@@ -38,13 +43,18 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to connect to postgresql: %w", err)
 	}
 
-	logrus.Info("connecting to redis...")
+	logrus.WithFields(
+		logrus.Fields{
+			"host":     cfg.Redis.Host,
+			"port":     cfg.Redis.Port,
+			"database": *cfg.Redis.Database,
+		}).Info("connecting to redis...")
 	clientRedis, err := redisclient.NewClient(cfg.Redis.Host, cfg.Redis.Port, cfg.Redis.Password, int(*cfg.Redis.Database))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to redis: %w", err)
 	}
 
-	logrus.Info("connecting to s3...")
+	logrus.WithField("bucketName", cfg.S3.BucketName).Info("connecting to s3...")
 	clientS3, err := s3client.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create s3 client: %w", err)
@@ -58,9 +68,19 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	handler := v1.NewHandler(usecases, cfg.HTTP.BytesLimit, cfg.HTTP.MaxLimit)
 
+	logrus.WithFields(logrus.Fields{
+		"host":          cfg.HTTP.Host,
+		"port":          cfg.HTTP.Port,
+		"bytes_limit":   cfg.HTTP.BytesLimit,
+		"memory_limit":  cfg.HTTP.MaxLimit,
+		"write_timeout": cfg.HTTP.WriteTimeout,
+		"read_timeout":  cfg.HTTP.ReadTimeout,
+		"idle_timeout":  cfg.HTTP.IdleTimeout,
+	}).Info("starting server")
 	server := &http.Server{
 		Addr:         net.JoinHostPort(cfg.HTTP.Host, cfg.HTTP.Port),
 		Handler:      handler,
+		BaseContext:  func(l net.Listener) context.Context { return ctx },
 		WriteTimeout: cfg.HTTP.WriteTimeout,
 		ReadTimeout:  cfg.HTTP.ReadTimeout,
 		IdleTimeout:  cfg.HTTP.IdleTimeout,

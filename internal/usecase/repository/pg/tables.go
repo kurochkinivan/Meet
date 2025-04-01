@@ -9,8 +9,8 @@ const (
 
 func usersField(field string) string {
 	return fmt.Sprintf("%s.%s", TableUsers, field)
-}	
+}
 
 func photosField(field string) string {
 	return fmt.Sprintf("%s.%s", TablePhotos, field)
-}	
+}

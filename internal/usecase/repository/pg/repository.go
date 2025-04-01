@@ -11,7 +11,7 @@ type Repositories struct {
 
 func NewRepositories(client *pgxpool.Pool) *Repositories {
 	return &Repositories{
-		UserRepository: NewUserRepository(client),
+		UserRepository:  NewUserRepository(client),
 		PhotoRepository: NewPhotoRepository(client),
 	}
 }
